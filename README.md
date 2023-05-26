@@ -1,0 +1,2 @@
+I implemented various machine learning methods from scratch. \
+Including: Gaussian mixture model clustering with EM, K-means clustering, Princiapl Component Analysis, Decision tree, Neural Network, linear regression, logistic regression, ridge regression, Hidden Markov model.
