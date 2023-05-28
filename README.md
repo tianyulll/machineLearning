@@ -1,2 +1,3 @@
 I implemented various machine learning methods from scratch. \
 Including: Gaussian mixture model clustering with EM, K-means clustering, Princiapl Component Analysis, Decision tree, Neural Network, linear regression, logistic regression, ridge regression, Hidden Markov model.
+* cancerCNNClassifier.ipynb: acquired brain tumor image data from cancer database; preprocessed image to normalize dimension; trained CNN model; evaluted performance on 2 different set of image data. Trained with pytorch.
