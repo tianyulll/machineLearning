@@ -21,6 +21,7 @@ hinting syntax, see https://docs.python.org/3/library/typing.html.
 import numpy as np
 import argparse
 from typing import Callable, List, Tuple
+import matplotlib.pyplot as plt
 
 # This takes care of command line argument parsing for you!
 # To access a specific argument, simply access args.<argument name>.
@@ -130,7 +131,7 @@ def random_init(shape):
     # TODO: create the random matrix here!
     # Hint: numpy might have some useful function for this
     # Hint: make sure you have the right distribution
-    raise NotImplementedError
+    return np.random.uniform(-0.1,0.1,size=shape)
 
 
 class SoftMaxCrossEntropy:
@@ -142,7 +143,8 @@ class SoftMaxCrossEntropy:
         :return: softmax output of shape (num_classes,)
         """
         # TODO: implement
-        raise NotImplementedError
+        ex = np.exp(z)
+        return ex / np.sum(ex)
 
     def _cross_entropy(self, y: int, y_hat: np.ndarray) -> float:
         """
@@ -152,7 +154,7 @@ class SoftMaxCrossEntropy:
         :return: cross entropy loss
         """
         # TODO: implement
-        raise NotImplementedError
+        return -np.log(y_hat[y])
 
     def forward(self, z: np.ndarray, y: int) -> Tuple[np.ndarray, float]:
         """
@@ -164,7 +166,8 @@ class SoftMaxCrossEntropy:
             loss: cross entropy loss
         """
         # TODO: Call your implementations of _softmax and _cross_entropy here
-        raise NotImplementedError
+        ypred = self._softmax(z)
+        return (ypred, self._cross_entropy(y, ypred))
 
     def backward(self, y: int, y_hat: np.ndarray) -> np.ndarray:
         """
@@ -181,7 +184,9 @@ class SoftMaxCrossEntropy:
         :return: gradient with shape (num_classes,)
         """
         # TODO: implement using the formula you derived in the written
-        raise NotImplementedError
+        y_vec = np.zeros_like(y_hat)
+        y_vec[y] = 1 # vectorize label
+        return y_hat-y_vec
 
 
 class Sigmoid:
@@ -191,7 +196,7 @@ class Sigmoid:
         """
         # TODO Initialize any additional values you may need to store for the
         #  backward pass here
-        raise NotImplementedError
+        self.state = None
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
@@ -203,7 +208,8 @@ class Sigmoid:
         """
         # TODO: perform forward pass and save any values you may need for
         #  the backward pass
-        raise NotImplementedError
+        self.state = 1/(1+np.exp(-x))
+        return self.state
 
     def backward(self, dz: np.ndarray) -> np.ndarray:
         """
@@ -213,7 +219,8 @@ class Sigmoid:
             sigmoid activation
         """
         # TODO: implement
-        raise NotImplementedError
+        dzda = self.state*(1-self.state)
+        return dz*dzda
 
 
 # This refers to a function type that takes in a tuple of 2 integers (row, col)
@@ -243,17 +250,19 @@ class Linear:
         #  To be consistent with the formulas you derived in the written and
         #  in order for the unit tests to work correctly,
         #  the first dimension should be the output size
-        raise NotImplementedError
+
+        self.w = weight_init_fn((output_size, input_size+1))
 
         # TODO: set the bias terms to zero
-        raise NotImplementedError
-
+        self.w[:,0] = 0
+        
         # TODO: Initialize matrix to store gradient with respect to weights
-        raise NotImplementedError
+        self.dw = np.zeros_like(self.w)
 
         # TODO: Initialize any additional values you may need to store for the
         #  backward pass here
-        raise NotImplementedError
+        self.x_b = None
+        
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """
@@ -271,7 +280,9 @@ class Linear:
         """
         # TODO: perform forward pass and save any values you may need for
         #  the backward pass
-        raise NotImplementedError
+        self.x_b = np.insert(x, 0, 1)
+        z = np.dot(self.w, self.x_b)
+        return z
 
     def backward(self, dz: np.ndarray) -> np.ndarray:
         """
@@ -289,7 +300,10 @@ class Linear:
         your forward() method.
         """
         # TODO: implement
-        raise NotImplementedError
+        self.dw = np.dot(dz.reshape(-1,1), self.x_b.reshape(1,-1)) # gradient of weights
+        dx = np.dot(self.w[:,1:].T, dz) # derivative wrt x; without bias
+        return dx
+
 
     def step(self) -> None:
         """
@@ -297,7 +311,8 @@ class Linear:
         set in NN.backward().
         """
         # TODO: implement
-        raise NotImplementedError
+        self.w -= self.lr*self.dw
+        #print(self.w)
 
 
 class NN:
@@ -324,7 +339,11 @@ class NN:
 
         # TODO: initialize modules (see section 9.1.2 of the writeup)
         #  Hint: use the classes you've implemented above!
-        raise NotImplementedError
+        self.lr = learning_rate
+        self.linear1 = Linear(input_size, hidden_size, weight_init_fn, self.lr)
+        self.sigmoid = Sigmoid()
+        self.linear2 = Linear(hidden_size, output_size, weight_init_fn, self.lr)
+        self.softmax = SoftMaxCrossEntropy()
 
     def forward(self, x: np.ndarray, y: int) -> Tuple[np.ndarray, float]:
         """
@@ -338,7 +357,12 @@ class NN:
             loss: the cross_entropy loss for a given example
         """
         # TODO: call forward pass for each layer
-        raise NotImplementedError
+        a = self.linear1.forward(x)
+        z = self.sigmoid.forward(a)
+        b = self.linear2.forward(z)
+        softmaxRes = self.softmax.forward(b, y)
+        y_hat, j = softmaxRes[0], softmaxRes[1]
+        return y_hat, j
 
     def backward(self, y: int, y_hat: np.ndarray) -> None:
         """
@@ -348,14 +372,21 @@ class NN:
         :param y_hat: prediction with shape (num_classes,)
         """
         # TODO: call backward pass for each layer
-        raise NotImplementedError
+        #gj = 1
+        gb = self.softmax.backward(y, y_hat)
+        gz = self.linear2.backward(gb)
+        ga = self.sigmoid.backward(gz)
+        gx = self.linear1.backward(ga)
 
     def step(self):
         """
         Apply SGD update to weights.
         """
         # TODO: call step for each relevant layer
-        raise NotImplementedError
+        #print("alpha")
+        self.linear1.step()
+        #print("beta")
+        self.linear2.step()
 
     def compute_loss(self, X: np.ndarray, y: np.ndarray) -> float:
         """
@@ -366,7 +397,11 @@ class NN:
         """
         # TODO: compute loss over the entire dataset
         #  Hint: reuse your forward function
-        raise NotImplementedError
+        entropy = []
+        for i, yi in enumerate(y):
+            _, j = self.forward(X[i], yi)
+            entropy.append(j)
+        return np.mean(entropy)
 
     def train(self, X_tr: np.ndarray, y_tr: np.ndarray,
               X_test: np.ndarray, y_test: np.ndarray,
@@ -383,7 +418,21 @@ class NN:
             test_losses: Test losses *after* each training epoch
         """
         # TODO: train network
-        raise NotImplementedError
+        train_loss, test_loss = [], []
+        for i in range(n_epochs):
+            # shuffle data
+            X_train, y_train = shuffle(X_tr, y_tr, i)
+            for i, xi in enumerate(X_train):
+                # compute forward prop
+                y_hat, _ = self.forward(xi, y_train[i])
+                # update parameter
+                self.backward(y_train[i], y_hat)
+                self.step()
+            # evaluate performance
+            train_loss.append(self.compute_loss(X_tr, y_tr))
+            test_loss.append(self.compute_loss(X_test, y_test))
+        return train_loss, test_loss
+
 
     def test(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, float]:
         """
@@ -395,7 +444,14 @@ class NN:
             error_rate: prediction error rate
         """
         # TODO: make predictions and compute error
-        raise NotImplementedError
+        labels = []
+        error = 0
+        for i, xi in enumerate(X):
+            y_prob, _ = self.forward(xi, y[i])
+            y_pred = np.argmax(self.softmax._softmax(y_prob))
+            if y_pred != y[i] : error += 1
+            labels.append(y_pred)
+        return labels, error/len(y)
 
 
 if __name__ == "__main__":
@@ -430,6 +486,82 @@ if __name__ == "__main__":
     train_labels, train_error_rate = nn.test(X_tr, y_tr)
     test_labels, test_error_rate = nn.test(X_test, y_test)
 
+    '''
+        # plot1 hidden units
+        plot_trainLoss, plot_testLoss = [], []
+        xaxis = [5,20,50,100,200]
+        for hidden in xaxis:
+            print("in hidden units", hidden)
+
+            # new model
+            nn2 = NN(
+            input_size=X_tr.shape[-1],
+            hidden_size=hidden,
+            output_size=len(labels),
+            weight_init_fn=zero_init if init_flag == 2 else random_init,
+            learning_rate=lr
+            )
+
+            plot_a, plot_b = nn2.train(X_tr, y_tr, X_test, y_test, n_epochs)
+            plot_trainLoss.append(plot_a[-1])
+            plot_testLoss.append(plot_b[-1])
+        plt.plot(xaxis, plot_trainLoss, label="train")
+        plt.plot(xaxis, plot_testLoss, label = "validation")
+        plt.xlabel("hidden units")
+        plt.ylabel("average cross entropy")
+        plt.legend()
+        plt.title("question 1-hidden units")
+        plt.savefig("q1.png")
+    '''
+
+    # # plot2 learning rate
+    # plot_trainLoss, plot_testLoss = [], []
+    # trial = [0.03, 0.003, 0.0003]
+    # for lr in trial:
+    #     print("in lr", lr)
+
+    #     # new model
+    #     nn2 = NN(
+    #     input_size=X_tr.shape[-1],
+    #     hidden_size=n_hid,
+    #     output_size=len(labels),
+    #     weight_init_fn=zero_init if init_flag == 2 else random_init,
+    #     learning_rate=lr
+    #     )
+
+    #     plot_a, plot_b = nn2.train(X_tr, y_tr, X_test, y_test, n_epochs)
+    #     plot_trainLoss.append(plot_a)
+    #     plot_testLoss.append(plot_b)
+    
+    # xaxis = np.arange(n_epochs)
+    # plt.plot(xaxis, plot_trainLoss[0], label="train")
+    # plt.plot(xaxis, plot_testLoss[0], label = "validation")
+    # plt.title('lr=0.03')
+    # plt.legend()
+    # plt.xlabel("epoch")
+    # plt.ylabel("average cross entropy")
+    # plt.savefig("q2-1.png")
+    # plt.clf()
+
+    # plt.plot(xaxis, plot_trainLoss[1], label="train")
+    # plt.plot(xaxis, plot_testLoss[1], label = "validation")
+    # plt.title('lr=0.003')
+    # plt.legend()
+    # plt.xlabel("epoch")
+    # plt.ylabel("average cross entropy")
+    # plt.savefig("q2-2.png")
+    # plt.clf()
+
+    # plt.plot(xaxis, plot_trainLoss[2], label="train")
+    # plt.plot(xaxis, plot_testLoss[2], label = "validation")
+    # plt.title('lr=0.0003')
+    # plt.legend()
+    # plt.xlabel("epoch")
+    # plt.ylabel("average cross entropy")
+    # plt.savefig("q2-3.png")
+
+
+
     # Write predicted label and error into file
     # Note that this assumes train_losses and test_losses are lists of floats
     # containing the per-epoch loss values.
@@ -450,3 +582,20 @@ if __name__ == "__main__":
                 cur_epoch, cur_te_loss))
         f.write("error(train): {}\n".format(train_error_rate))
         f.write("error(validation): {}\n".format(test_error_rate))
+
+
+'''
+
+python3 neuralnet.py small_train.csv small_validation.csv \
+small_train_out.labels small_validation_out.labels \
+small_metrics_out.txt 2 4 2 0.1
+
+python3 neuralnet.py small_train.csv small_validation.csv \
+plot_train_out.labels plot_validation_out.labels \
+plot_metrics_out.txt 100 50 1 0.001
+
+python neuralnet.py small_train.csv small_validation.csv \
+small_train_out.labels small_validation_out.labels \
+small_metrics_out.txt 1 4 2 0.1
+
+'''
